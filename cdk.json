@@ -1,0 +1,7 @@
+{
+  "app": "node --import tsx bin/app.ts",
+  "versionReporting": false,
+  "context": {
+    "@aws-cdk/aws-iam:minimizePolicies": true
+  }
+}

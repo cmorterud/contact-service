@@ -1,0 +1,51 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contact-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      DEPLOY_ENV: prod
+      ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+      CONFIG_VERSION: ${{ vars.CONFIG_VERSION }}
+      CDK_QUALIFIER: ${{ vars.CDK_QUALIFIER || 'hnb659fds' }}
+      THROTTLE_RATE: ${{ vars.THROTTLE_RATE || '0.1' }}
+      THROTTLE_BURST: ${{ vars.THROTTLE_BURST || '2' }}
+      RESERVED_CONCURRENCY: ${{ vars.RESERVED_CONCURRENCY || '2' }}
+      MONTHLY_BUDGET_USD: ${{ vars.MONTHLY_BUDGET_USD || '5' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run check
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: contact-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-duration-seconds: 1800
+      - run: npm run cdk -- synth Contact-prod --strict --quiet
+      - run: npm run cdk -- diff Contact-prod --method template --fail-on never
+      - run: npm run deploy

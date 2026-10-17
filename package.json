@@ -1,0 +1,28 @@
+{
+  "name": "serverless-contact-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal API Gateway, Lambda, and SES contact service",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "cdk": "cdk",
+    "synth": "cdk synth Contact-prod --quiet",
+    "deploy": "node --import tsx scripts/deploy.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ses": "3.1152.0",
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.164",
+    "@types/node": "24.19.2",
+    "aws-cdk": "2.1145.0",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
