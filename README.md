@@ -42,7 +42,40 @@ Tests cover validation, headers, body size/encoding, successful and failed sends
 
 The files under `src/` are the handler and input validation. `infra/contact-stack.ts` owns the service and monitoring; `infra/setup-stack.ts` owns the AWS-side configuration container and GitHub federation. `scripts/deploy.ts` deploys with configuration references without reading private values.
 
-## First deployment
+## Manual deployment without GitHub OIDC
+
+Manual deployment uses your existing local AWS session and the same CDK service stack. It does not create an OIDC provider or a GitHub deployment role, and does not require activating advanced account features. Your AWS account must still permit CDK bootstrap and the service resources; local deployment does not override any organization policies.
+
+From an authenticated local shell, set the intended profile, account, Region, and public configuration. For example:
+
+```sh
+export AWS_PROFILE=YOUR_PROFILE
+export AWS_REGION=us-east-2
+export CDK_DEFAULT_ACCOUNT=123456789012
+export DEPLOY_ENV=prod
+export ALLOWED_ORIGINS='https://example.com,https://www.example.com'
+export SETUP_MODE=manual
+
+npm ci
+npm run check
+npm run cdk -- bootstrap "aws://$CDK_DEFAULT_ACCOUNT/$AWS_REGION"
+npm run cdk -- --app 'node --import tsx bin/setup.ts' diff "ContactSetup-$DEPLOY_ENV"
+npm run cdk -- --app 'node --import tsx bin/setup.ts' deploy "ContactSetup-$DEPLOY_ENV"
+```
+
+The setup stack creates only the empty `contact/prod/email` secret. Populate its `senderEmail`, `recipientEmail`, and `alertEmail` JSON keys directly in AWS Secrets Manager, as described below, and copy its version ID. Do not put the private JSON in terminal commands, shell history, source files, or GitHub.
+
+```sh
+export CONFIG_VERSION=YOUR_AWS_SECRET_VERSION_ID
+npm run cdk -- diff "Contact-$DEPLOY_ENV" --method template --fail-on never
+npm run deploy
+```
+
+Complete SES ownership verification and SNS subscription confirmation as described below, then test the endpoint. Keep `SETUP_MODE=manual` on subsequent setup-stack deployments. Switching an existing GitHub setup stack to manual mode removes its GitHub role and any OIDC provider it owns, so review the diff first; this option is intended for the initial setup of an account without GitHub OIDC access.
+
+## GitHub Actions deployment
+
+The following path requires permission to manage GitHub OIDC in AWS. For accounts where this is restricted, use the manual deployment path above. Unset `SETUP_MODE` or set it to `github` when following these steps.
 
 ### 1. Prepare the AWS account and CDK bootstrap
 

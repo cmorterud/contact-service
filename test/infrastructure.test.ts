@@ -101,6 +101,18 @@ const setupProps = {
   env, deploymentEnvironment: 'prod', repository: 'owner/repository',
   oidcSubject: 'repo:owner/repository:environment:production', existingOidcProvider: false, qualifier: 'hnb659fds',
 };
+test('manual setup provisions only configuration, without GitHub permissions or OIDC', () => {
+  const setup = Template.fromStack(new SetupStack(new App(), 'ManualSetup', {
+    env, deploymentEnvironment: 'prod', qualifier: 'hnb659fds', enableGitHubOidc: false,
+  }));
+  setup.resourceCountIs('AWS::SecretsManager::Secret', 1);
+  setup.resourceCountIs('AWS::IAM::Role', 0);
+  setup.resourceCountIs('AWS::IAM::Policy', 0);
+  setup.resourceCountIs('AWS::IAM::OIDCProvider', 0);
+  setup.resourceCountIs('AWS::Lambda::Function', 0);
+  setup.hasResourceProperties('AWS::SecretsManager::Secret', { Name: 'contact/prod/email', SecretString: Match.absent() });
+  assert.equal(setup.toJSON().Outputs.GitHubRoleArn, undefined);
+});
 test('setup scopes OIDC trust to the exact audience, repository, and production environment', () => {
   const setup = Template.fromStack(new SetupStack(new App(), 'Setup', setupProps));
   setup.hasResourceProperties('AWS::IAM::Role', { AssumeRolePolicyDocument: { Statement: [{
