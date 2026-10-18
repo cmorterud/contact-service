@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { App } from 'aws-cdk-lib';
+import { App, CliCredentialsStackSynthesizer } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { ContactStack } from '../infra/contact-stack';
 import { SetupStack } from '../infra/setup-stack';
+import { ManualAssetsStack } from '../infra/manual-assets-stack';
+import { manualAssetsBucketName } from '../infra/deployment-synthesizer';
 
 const env = { account: '123456789012', region: 'us-east-1' };
 const template = Template.fromStack(new ContactStack(new App(), 'Contact-test', { env, allowedOrigins: ['https://example.com'] }));
@@ -101,6 +103,36 @@ const setupProps = {
   env, deploymentEnvironment: 'prod', repository: 'owner/repository',
   oidcSubject: 'repo:owner/repository:environment:production', existingOidcProvider: false, qualifier: 'hnb659fds',
 };
+test('manual deployment needs only a private asset bucket and never assumes deployment roles', () => {
+  const app = new App();
+  const assets = new ManualAssetsStack(app, 'ManualAssets', { env, deploymentEnvironment: 'test' });
+  const setup = new SetupStack(app, 'ManualDeploymentSetup', {
+    env, deploymentEnvironment: 'test', qualifier: 'hnb659fds', enableGitHubOidc: false,
+    synthesizer: new CliCredentialsStackSynthesizer({ fileAssetsBucketName: manualAssetsBucketName('test') }),
+  });
+  const assetTemplate = Template.fromStack(assets);
+  assetTemplate.resourceCountIs('AWS::S3::Bucket', 1);
+  assetTemplate.resourceCountIs('AWS::IAM::Role', 0);
+  assetTemplate.resourceCountIs('AWS::IAM::Policy', 0);
+  assetTemplate.hasResourceProperties('AWS::S3::Bucket', {
+    BucketName: 'contact-assets-123456789012-us-east-1-test',
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true,
+    },
+    BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: 'AES256' } }] },
+    OwnershipControls: { Rules: [{ ObjectOwnership: 'BucketOwnerEnforced' }] },
+  });
+  assetTemplate.hasResourceProperties('AWS::S3::BucketPolicy', { PolicyDocument: { Statement: Match.arrayWith([
+    Match.objectLike({ Effect: 'Deny', Condition: { Bool: { 'aws:SecureTransport': 'false' } } }),
+  ]) } });
+  const assembly = app.synth();
+  for (const stack of [assets, setup]) {
+    const artifact = assembly.getStackArtifact(stack.artifactId);
+    assert.equal(artifact.assumeRoleArn, undefined);
+    assert.equal(artifact.cloudFormationExecutionRoleArn, undefined);
+    assert.equal(artifact.requiresBootstrapStackVersion, undefined);
+  }
+});
 test('manual setup provisions only configuration, without GitHub permissions or OIDC', () => {
   const setup = Template.fromStack(new SetupStack(new App(), 'ManualSetup', {
     env, deploymentEnvironment: 'prod', qualifier: 'hnb659fds', enableGitHubOidc: false,

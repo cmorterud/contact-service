@@ -1,5 +1,6 @@
-import { App, DefaultStackSynthesizer } from 'aws-cdk-lib';
+import { App } from 'aws-cdk-lib';
 import { SetupStack } from '../infra/setup-stack';
+import { deploymentSynthesizer } from '../infra/deployment-synthesizer';
 
 const repository = process.env.GITHUB_REPOSITORY ?? '';
 const setupMode = process.env.SETUP_MODE ?? 'github';
@@ -13,7 +14,7 @@ const qualifier = process.env.CDK_QUALIFIER ?? 'hnb659fds';
 if (!/^[a-zA-Z0-9]{1,10}$/.test(qualifier)) throw new Error('Invalid CDK_QUALIFIER');
 new SetupStack(new App(), `ContactSetup-${deploymentEnvironment}`, {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION },
-  synthesizer: new DefaultStackSynthesizer({ qualifier }),
+  synthesizer: deploymentSynthesizer(deploymentEnvironment, qualifier),
   deploymentEnvironment,
   enableGitHubOidc: setupMode === 'github',
   repository,

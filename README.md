@@ -44,7 +44,7 @@ The files under `src/` are the handler and input validation. `infra/contact-stac
 
 ## Manual deployment without GitHub OIDC
 
-Manual deployment uses your existing local AWS session and the same CDK service stack. It does not create an OIDC provider or a GitHub deployment role, and does not require activating advanced account features. Your AWS account must still permit CDK bootstrap and the service resources; local deployment does not override any organization policies.
+Manual deployment uses your existing local AWS session and the same CDK service stack. A small asset stack creates a private, encrypted S3 bucket for deployment artifacts; it creates no deployment roles or administrator permissions. This path does not require standard CDK bootstrap or activating advanced account features. Your AWS account must still permit the service resources; local deployment does not override any organization policies.
 
 From an authenticated local shell, set the intended profile, account, Region, and public configuration. For example:
 
@@ -58,7 +58,8 @@ export SETUP_MODE=manual
 
 npm ci
 npm run check
-npm run cdk -- bootstrap "aws://$CDK_DEFAULT_ACCOUNT/$AWS_REGION"
+npm run cdk -- --app 'node --import tsx bin/manual-assets.ts' diff "ContactAssets-$DEPLOY_ENV"
+npm run cdk -- --app 'node --import tsx bin/manual-assets.ts' deploy "ContactAssets-$DEPLOY_ENV"
 npm run cdk -- --app 'node --import tsx bin/setup.ts' diff "ContactSetup-$DEPLOY_ENV"
 npm run cdk -- --app 'node --import tsx bin/setup.ts' deploy "ContactSetup-$DEPLOY_ENV"
 ```
@@ -71,7 +72,7 @@ npm run cdk -- diff "Contact-$DEPLOY_ENV" --method template --fail-on never
 npm run deploy
 ```
 
-Complete SES ownership verification and SNS subscription confirmation as described below, then test the endpoint. Keep `SETUP_MODE=manual` on subsequent setup-stack deployments. Switching an existing GitHub setup stack to manual mode removes its GitHub role and any OIDC provider it owns, so review the diff first; this option is intended for the initial setup of an account without GitHub OIDC access.
+Complete SES ownership verification and SNS subscription confirmation as described below, then test the endpoint. Keep `SETUP_MODE=manual` on all subsequent local synth, diff, and deployment commands. Switching an existing GitHub setup stack to manual mode removes its GitHub role and any OIDC provider it owns, so review the diff first; this option is intended for the initial setup of an account without GitHub OIDC access. The asset bucket is retained during teardown; empty and delete it separately when no deployments depend on it.
 
 ## GitHub Actions deployment
 
