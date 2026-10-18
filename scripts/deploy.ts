@@ -18,7 +18,7 @@ const args = [
 ];
 for (const [parameter, variable] of [
   ['ThrottleRate', 'THROTTLE_RATE'], ['ThrottleBurst', 'THROTTLE_BURST'],
-  ['ReservedConcurrency', 'RESERVED_CONCURRENCY'], ['MonthlyBudgetUsd', 'MONTHLY_BUDGET_USD'],
+  ['MonthlyBudgetUsd', 'MONTHLY_BUDGET_USD'],
 ] as const) {
   const value = process.env[variable];
   if (value !== undefined) {

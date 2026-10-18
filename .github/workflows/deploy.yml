@@ -27,7 +27,6 @@ jobs:
       CDK_QUALIFIER: ${{ vars.CDK_QUALIFIER || 'hnb659fds' }}
       THROTTLE_RATE: ${{ vars.THROTTLE_RATE || '0.1' }}
       THROTTLE_BURST: ${{ vars.THROTTLE_BURST || '2' }}
-      RESERVED_CONCURRENCY: ${{ vars.RESERVED_CONCURRENCY || '2' }}
       MONTHLY_BUDGET_USD: ${{ vars.MONTHLY_BUDGET_USD || '5' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

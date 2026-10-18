@@ -17,14 +17,15 @@ test('emails are required NoEcho parameters and never output', () => {
   assert.equal(outputs.includes('Email'), false);
 });
 
-test('Lambda has a short timeout, concurrency limit, and parameterized addresses', () => {
+test('Lambda uses account concurrency, a short timeout, and parameterized addresses', () => {
   template.hasResourceProperties('AWS::Lambda::Function', {
     Runtime: 'nodejs24.x', Architectures: ['arm64'], MemorySize: 128, Timeout: 8,
-    ReservedConcurrentExecutions: { Ref: 'ReservedConcurrency' },
+    ReservedConcurrentExecutions: Match.absent(),
     Environment: { Variables: {
       SENDER_EMAIL: { Ref: 'SenderEmail' }, RECIPIENT_EMAIL: { Ref: 'RecipientEmail' }, ALLOWED_ORIGINS: 'https://example.com',
     } },
   });
+  assert.equal(template.toJSON().Parameters.ReservedConcurrency, undefined);
 });
 
 test('execution policy restricts SES action, sender identity, from address, and every recipient', () => {
@@ -46,7 +47,7 @@ test('execution policy restricts SES action, sender identity, from address, and 
   template.resourceCountIs('AWS::IAM::Role', 1);
 });
 
-test('HTTP API exposes only POST /contact, explicit CORS, and throttling', () => {
+test('HTTP API exposes one contact route with explicit CORS and a shared token bucket', () => {
   template.resourceCountIs('AWS::ApiGatewayV2::Route', 1);
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', { RouteKey: 'POST /contact', AuthorizationType: 'NONE' });
   template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
@@ -59,6 +60,8 @@ test('HTTP API exposes only POST /contact, explicit CORS, and throttling', () =>
     AccessLogSettings: Match.absent(),
   });
   template.hasResourceProperties('AWS::Lambda::Permission', { Principal: 'apigateway.amazonaws.com', SourceArn: Match.anyValue() });
+  template.hasParameter('ThrottleRate', { Type: 'Number', Default: 0.1, MinValue: 0.01, MaxValue: 10 });
+  template.hasParameter('ThrottleBurst', { Type: 'Number', Default: 2, MinValue: 1, MaxValue: 20 });
 });
 
 test('monitoring includes delivery failures, traffic, errors, throttles, and a cost budget', () => {

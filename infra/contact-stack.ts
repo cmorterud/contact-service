@@ -29,9 +29,14 @@ export class ContactStack extends Stack {
     const sender = email('SenderEmail', 'senderEmail');
     const recipient = email('RecipientEmail', 'recipientEmail');
     const alert = email('AlertEmail', 'alertEmail');
-    const rate = new CfnParameter(this, 'ThrottleRate', { type: 'Number', default: 0.1, minValue: 0.01, maxValue: 10 });
-    const burst = new CfnParameter(this, 'ThrottleBurst', { type: 'Number', default: 2, minValue: 1, maxValue: 20 });
-    const concurrency = new CfnParameter(this, 'ReservedConcurrency', { type: 'Number', default: 2, minValue: 1, maxValue: 10 });
+    const rate = new CfnParameter(this, 'ThrottleRate', {
+      type: 'Number', default: 0.1, minValue: 0.01, maxValue: 10,
+      description: 'Shared POST /contact token refill rate in requests per second (0.1 = 6 per minute).',
+    });
+    const burst = new CfnParameter(this, 'ThrottleBurst', {
+      type: 'Number', default: 2, minValue: 1, maxValue: 20,
+      description: 'Shared POST /contact token bucket capacity. API Gateway throttling is best effort.',
+    });
     const budgetAmount = new CfnParameter(this, 'MonthlyBudgetUsd', { type: 'Number', default: 5, minValue: 1, maxValue: 100 });
 
     // Verifies the exact sender mailbox. The owner must follow SES's email link.
@@ -66,7 +71,6 @@ export class ContactStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 128,
       timeout: Duration.seconds(8),
-      reservedConcurrentExecutions: concurrency.valueAsNumber,
       role,
       logGroup,
       environment: {
@@ -102,6 +106,8 @@ export class ContactStack extends Stack {
       httpApi: api,
       stageName: '$default',
       autoDeploy: true,
+      // One route: this bucket is shared by all callers and allowed websites,
+      // before Lambda invocation. These are best-effort targets, not hard caps.
       throttle: { rateLimit: rate.valueAsNumber, burstLimit: burst.valueAsNumber },
       // No access logs: default formats may include IP addresses and request paths.
     });
